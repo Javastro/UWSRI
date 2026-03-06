@@ -6,93 +6,95 @@ package org.javastro.ivoa.uws;
  */
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.javastro.ivoa.entities.uws.*;
-import org.jboss.resteasy.reactive.RestPath;
+import org.javastro.ivoacore.uws.BaseUWSJob;
+import org.javastro.ivoacore.uws.JobManager;
+import org.javastro.ivoacore.uws.SimpleLambdaJob;
+import org.javastro.ivoacore.uws.UWSException;
+import org.javastro.ivoacore.uws.environment.execution.ParameterValue;
+import org.javastro.ivoacore.uws.webapi.BaseUWSResource;
+import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.server.jaxrs.ResponseBuilderImpl;
 
-@Tag(name="UWSserver", description = "The standard UWS endpoints")
+import java.time.ZonedDateTime;
+import java.util.Optional;
+import java.util.stream.Stream;
+
+@Tag(name="UWS", description = "The IVOA standard UWS endpoints")
 @ApplicationScoped
 @Produces(MediaType.APPLICATION_XML)
 @Path("/jobs")
-public class UWSResource {
+public class UWSResource extends BaseUWSResource {
 
-   //FIXME remove this dummy Job after initial OpenAPI prototyping
-   Job dummyJob = Job.builder().withJobId("45").withOwnerId("person").
-         withPhase(ExecutionPhase.EXECUTING).build();
+   @Inject
+   JobManager  jobManager;
+
+   @Override
+   protected JobManager getJobManager() {
+      return jobManager;
+   }
+
    @POST
-   public RestResponse<Job> create(String jdl, @Context UriInfo uriInfo) {
-      //FIXME need to actually create job
-      long jobid = 45L; //TODO set actual value
-      return RestResponse.seeOther(uriInfo.getAbsolutePathBuilder()
-            .path(Long.toString(jobid)).build());
-   }
-   @GET
-   public Jobs listJobs(){
-      return new Jobs();
+   public Response create(@RestForm String jdl, @Context UriInfo uriInfo) throws UWSException { //TODO this needs to be generalized more
+      SimpleLambdaJob.Specification spec = new SimpleLambdaJob.Specification(jdl, "myrefID");
+      BaseUWSJob job = jobManager.createJob(spec);
+      Response retval = new ResponseBuilderImpl().location(uriInfo.getAbsolutePathBuilder()
+            .path(job.getID()).build()).status(Response.Status.SEE_OTHER).build();
+// IMPL quarkus doc says below should work....            
+//      RestResponse retval = RestResponse.seeOther(uriInfo.getAbsolutePathBuilder()
+//            .path(job.getID()).build());
+      
+      return retval;
    }
 
-   @GET
-   @Path("/{jobid}")
-   public Job getJob(@RestPath String jobid){
-      return dummyJob;
-   }
-   @GET
+   @POST
    @Path("/{jobid}/phase")
-   public ExecutionPhase getJobPhase(@RestPath String jobid){
-      return dummyJob.getPhase();
+   public Response setPhase(@PathParam("jobid") String jobid, @FormParam("PHASE") String phase, @Context UriInfo uriInfo) throws UWSException {
+      ExecutionPhase newphase = jobManager.setPhase(jobid, phase);
+      Response retval = new ResponseBuilderImpl().location(uriInfo.getAbsolutePathBuilder()
+            .path(jobid).build()).status(Response.Status.SEE_OTHER).build();
+      return retval;
    }
+
    @GET
-   @Path("/{jobid}/executionduration")
-   public Integer getJobExecutionDuration(@RestPath String jobid){
-      return dummyJob.getExecutionDuration();
+   @Path("/{jobid}/results/{resultid}")
+   public RestResponse<String> getAResult(@PathParam("jobid") String jobid, @PathParam("resultid") String resultid) throws UWSException {
+     //FIXME too simplistic - want more complex mapping between job products and where and how they appear.
+      Optional<ParameterValue> result = jobManager.getJobResults(jobid).stream().filter(p -> p.getId().equals(resultid)).findFirst();
+      if (result.isPresent()) {
+         return RestResponse.ok(result.get().getValue());
+      }
+      else
+         return RestResponse.notFound();
+
    }
-   @GET
+
+   @Override
+   @POST
    @Path("/{jobid}/destruction")
-   public String getJobDestruction(@RestPath String jobid){
-      return dummyJob.getDestruction().toString();
-   }
-   @GET
-   @Path("/{jobid}/error")
-   public String getJobDError(@RestPath String jobid){
-      return dummyJob.getErrorSummary().getMessage();
-   }
-   @GET
-   @Path("/{jobid}/owner")
-   public String  getJobOwner(@RestPath String jobid){
-      return dummyJob.getOwnerId();
+   public Response setDestruction(@PathParam("jobid")String jobId, @FormParam("DESTRUCTION") ZonedDateTime destructionTime) throws UWSException {
+      throw new UWSException("Not implemented");
    }
 
-   @GET
-   @Path("/{jobid}/quote")
-   public String getJobQuote(@RestPath String jobid){
-      return dummyJob.getQuote().toString();
-   }
-   @GET
-   @Path("/{jobid}/results")
-   public Results getJobResults(@RestPath String jobid){
-      return dummyJob.getResults();
+   @POST
+   @Path("/{jobid}/executionduration")
+   @Override
+   public Response setExecutionDuration(@PathParam("jobid")String jobId, @FormParam("EXECUTIONDURATION") Long executionDuration) throws UWSException {
+      throw new UWSException("Not implemented");
    }
 
-   @GET
-   @Path("/{jobid}/parameters")
-   public Parameters getJobParameters(@RestPath String jobid){
-      return dummyJob.getParameters();
+   @Override
+   @DELETE
+   @Path("/{jobid}")
+   public Response deleteJob(@PathParam("jobid")String jobid) throws UWSException {
+      throw new UWSException("Not supported yet.");
    }
-
-
-   private ShortJobDescription shorten(Job job)
-   {
-      return new ShortJobDescription(job.getPhase(), job.getRunId(), job.getOwnerId(),job.getCreationTime(), job.getJobId(), "type", "href");
-   }
-
-
 }

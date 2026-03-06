@@ -15,6 +15,4 @@ public class BaseUWSServer implements VOSIProvider {
       return new Capabilities();
    }
 
-
-
 }
