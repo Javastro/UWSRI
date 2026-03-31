@@ -3,11 +3,14 @@ package org.javastro.ivoa.uws;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Singleton;
 import org.javastro.ivoacore.uws.JobFactoryAggregator;
 import org.javastro.ivoacore.uws.JobManager;
 import org.javastro.ivoacore.uws.SimpleLambdaJob;
+import org.javastro.ivoacore.uws.environment.DefaultEnvironmentFactory;
 import org.javastro.ivoacore.uws.environment.DefaultExecutionEnvironment;
 import org.javastro.ivoacore.uws.environment.DefaultExecutionPolicy;
+import org.javastro.ivoacore.uws.environment.EnvironmentFactory;
 import org.javastro.ivoacore.uws.persist.MemoryBasedJobStore;
 
 import java.io.File;
@@ -20,6 +23,7 @@ import java.nio.file.Files;
 @ApplicationScoped
 public class UWSConfiguration {
    @Produces
+   @Singleton
    JobManager uws() {
       File tmpdir = null;
       try {
@@ -27,6 +31,7 @@ public class UWSConfiguration {
       } catch (IOException e) {
          throw new RuntimeException("temporary directory not available",e);
       }
+      EnvironmentFactory env = new DefaultEnvironmentFactory(tmpdir);
       JobFactoryAggregator agg = new JobFactoryAggregator();
       agg.addFactory(new SimpleLambdaJob.JobFactory(s-> {
          try {
@@ -34,11 +39,11 @@ public class UWSConfiguration {
          } catch (InterruptedException e) {
             throw new RuntimeException(e); //TODO review exception handling
          }
-         return "hello "+s;}));
+         return "hello "+s;}, env));
 
-      DefaultExecutionEnvironment env = new DefaultExecutionEnvironment(tmpdir);
+
       MemoryBasedJobStore store = new MemoryBasedJobStore();
       DefaultExecutionPolicy policy = new DefaultExecutionPolicy();
-      return new JobManager(env, agg,store,policy);
+      return new JobManager(agg,store,policy);
    }
 }
