@@ -8,11 +8,9 @@ package org.javastro.ivoa.uws;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
-import jakarta.ws.rs.core.Context;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.UriInfo;
+import jakarta.ws.rs.core.*;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.javastro.ivoacore.common.ServiceLocator;
 import org.javastro.ivoacore.uws.BaseUWSJob;
 import org.javastro.ivoacore.uws.JobManager;
 import org.javastro.ivoacore.uws.SimpleLambdaJob;
@@ -33,9 +31,22 @@ public class UWSResource extends BaseUWSResource {
    @Inject
    JobManager  jobManager;
 
+   @Inject
+   ServiceLocator serviceLocator;
+
    @Override
    protected JobManager getJobManager() {
       return jobManager;
+   }
+
+   @Override
+   protected Response redirectToJob(String jobid) {
+      final UriBuilder urib = UriBuilder.fromUri(serviceLocator.serviceURI());
+      if (jobid != null && !jobid.isEmpty()) {
+         urib.path(jobid);
+      }
+      return Response.seeOther(urib
+            .build()).build();
    }
 
    @POST

@@ -4,6 +4,8 @@ package org.javastro.ivoa.uws;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Singleton;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.javastro.ivoacore.common.ServiceLocator;
 import org.javastro.ivoacore.uws.JobFactoryAggregator;
 import org.javastro.ivoacore.uws.JobManager;
 import org.javastro.ivoacore.uws.SimpleLambdaJob;
@@ -15,6 +17,7 @@ import org.javastro.ivoacore.uws.persist.MemoryBasedJobStore;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 
 /*
@@ -22,6 +25,22 @@ import java.nio.file.Files;
  */
 @ApplicationScoped
 public class UWSConfiguration {
+
+   @ConfigProperty(name="ivoa.baseAddress", defaultValue = "http://localhost:8080/")
+   URI baseURI;
+
+
+   @Produces
+   @Singleton
+   ServiceLocator serviceLocator() {
+      return new ServiceLocator() {
+         @Override
+         public URI serviceURI() {
+            return baseURI;
+         }
+      };
+   }
+
    @Produces
    @Singleton
    JobManager uws() {
